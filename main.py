@@ -1,5 +1,5 @@
 import cv2
-import mediapipe as mp
+from numba import njit, prange
 import numpy as np
 
 from animation import AnimationState, Animation
@@ -16,17 +16,15 @@ _BACKGROUND_OUT_DIR = 'assets/out'
 _BACKGROUND_IDLE_DIR = 'assets/idle'
 
 
-def add_transparent_image(background, foreground, x_offset=None, y_offset=None):
-    bg_h, bg_w, bg_channels = background.shape
-    fg_h, fg_w, fg_channels = foreground.shape
-
-    assert bg_channels == 3, f'background image should have exactly 3 channels (RGB). found: {bg_channels}'
-    assert fg_channels == 4, f'foreground image should have exactly 4 channels (RGBA). found: {fg_channels}'
+@njit(fastmath=True, parallel=True)
+def add_transparent_image(background: np.ndarray, foreground: np.ndarray, x_offset: int = 0, y_offset: int = 0):
+    bg_h, bg_w, _ = background.shape
+    fg_h, fg_w, _ = foreground.shape
 
     # center by default
-    if x_offset is None:
+    if x_offset == 0:
         x_offset = (bg_w - fg_w) // 2
-    if y_offset is None:
+    if y_offset == 0:
         y_offset = (bg_h - fg_h) // 2
 
     w = min(fg_w, bg_w, fg_w + x_offset, bg_w - x_offset)
@@ -57,8 +55,20 @@ def add_transparent_image(background, foreground, x_offset=None, y_offset=None):
     background[bg_y:bg_y + h, bg_x:bg_x + w] = composite
 
 
+@njit(fastmath=True, parallel=True)
 def is_human_present(confidence_mask: np.ndarray) -> bool:
     return confidence_mask.sum() > 4000
+
+
+@njit(parallel=True)
+def apply_confidence_mask(image: np.ndarray, confidence_mask: np.ndarray, tol: float = 0.1) -> np.ndarray:
+    bg_image = image.copy()
+    bg_h, bg_w, _ = bg_image.shape
+    for h in prange(bg_h):
+        for w in prange(bg_w):
+            if confidence_mask[h, w] > tol:
+                bg_image[h, w, 3] = 0
+    return bg_image
 
 
 def _main():
@@ -93,7 +103,6 @@ def _main():
         if not isinstance(confidence_mask, np.ndarray):
             continue
 
-        human_mask = confidence_mask > 0.1
         human_present = is_human_present(confidence_mask)
 
         background_image = None
@@ -116,9 +125,7 @@ def _main():
                 state = AnimationState.IN
 
         if background_image is not None:
-            bg_image = background_image.copy()
-            bg_image[human_mask, 3] = 0
-
+            bg_image = apply_confidence_mask(background_image, confidence_mask)
             add_transparent_image(frame, bg_image)
 
         add_transparent_image(frame, foreground_image, y_offset=200)
