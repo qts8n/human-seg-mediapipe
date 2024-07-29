@@ -15,6 +15,8 @@ _BACKGROUND_IN_DIR = 'assets/in'
 _BACKGROUND_OUT_DIR = 'assets/out'
 _BACKGROUND_IDLE_DIR = 'assets/idle'
 
+_HUMAN_PRESENCE_TOL = 0.05
+
 
 @njit(fastmath=True, parallel=True)
 def add_transparent_image(background: np.ndarray, foreground: np.ndarray, x_offset: int = 0, y_offset: int = 0):
@@ -56,18 +58,23 @@ def add_transparent_image(background: np.ndarray, foreground: np.ndarray, x_offs
 
 
 @njit(fastmath=True, parallel=True)
-def is_human_present(confidence_mask: np.ndarray) -> bool:
-    return confidence_mask.sum() > 4000
+def is_human_present(confidence_mask: np.ndarray, tol: float = 0.2) -> bool:
+    bg_h, bg_w = confidence_mask.shape
+    human_pix_num = confidence_mask.sum()
+    all_pix_num = bg_h * bg_w
+    return (human_pix_num / all_pix_num) > tol
 
 
 @njit(parallel=True)
-def apply_confidence_mask(image: np.ndarray, confidence_mask: np.ndarray, tol: float = 0.1) -> np.ndarray:
+def apply_confidence_mask(image: np.ndarray, confidence_mask: np.ndarray) -> np.ndarray:
     bg_image = image.copy()
     bg_h, bg_w, _ = bg_image.shape
     for h in prange(bg_h):
         for w in prange(bg_w):
-            if confidence_mask[h, w] > tol:
-                bg_image[h, w, 3] = 0
+            is_human = confidence_mask[h, w]
+            if bg_image[h, w, 3] > 0:
+                confidence = int(255 * (1 - is_human))
+                bg_image[h, w, 3] = confidence
     return bg_image
 
 
@@ -103,7 +110,7 @@ def _main():
         if not isinstance(confidence_mask, np.ndarray):
             continue
 
-        human_present = is_human_present(confidence_mask)
+        human_present = is_human_present(confidence_mask, tol=_HUMAN_PRESENCE_TOL)
 
         background_image = None
 
