@@ -20,7 +20,7 @@ pip install -r requirements.txt
 ## Run
 
 The script uses background animations stored in their
-dedicated directories in `assets` directory:
+dedicated directories in the `assets` directory:
 
 - `assets/idle` - Background idle animation.
 - `assets/in` - Background animation-in.
@@ -36,7 +36,7 @@ Run the script:
 python main.py
 ```
 
-The script should automatically determine you default
+The script should automatically determine your default
 camera and connect to it.
 
 The script will automaticall use your Nvidia GPU
