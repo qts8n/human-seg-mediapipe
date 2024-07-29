@@ -41,3 +41,9 @@ camera and connect to it.
 
 The script will automaticall use your Nvidia GPU
 if you have one and all the necessery drivers are installed.
+
+## Keyboard Controls
+
+- `Q` - quit the application.
+- `F` - enter fullscreen mode.
+- `N` - enter normal mode.
