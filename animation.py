@@ -12,13 +12,14 @@ class AnimationState(enum.Enum):
 
 
 class Animation:
-    def __init__(self, frame_dir: str):
+    def __init__(self, frame_dir: str, resolution: tuple[int, int]):
         assert os.path.isdir(frame_dir), 'invalid frame dir'
 
         self.frames = []
         for frame_name in sorted(os.listdir(frame_dir)):
             frame_path = os.path.join(frame_dir, frame_name)
             frame = cv2.imread(frame_path, cv2.IMREAD_UNCHANGED)
+            frame = cv2.resize(frame, resolution)
             self.frames.append(frame)
 
         assert self.frames, 'frame dir is empty'

@@ -15,6 +15,8 @@ _BACKGROUND_IN_DIR = 'assets/in'
 _BACKGROUND_OUT_DIR = 'assets/out'
 _BACKGROUND_IDLE_DIR = 'assets/idle'
 
+_RESOLUTION = (1920, 1080)
+
 _HUMAN_PRESENCE_TOL = 0.05
 
 
@@ -88,9 +90,11 @@ def _main():
     segmenter = Segmenter(_MODEL_PATH)
 
     foreground_image = cv2.imread(_FOREGROUND_PATH, cv2.IMREAD_UNCHANGED)
-    background_in = Animation(_BACKGROUND_IN_DIR)
-    background_out = Animation(_BACKGROUND_OUT_DIR)
-    background_idle = Animation(_BACKGROUND_IDLE_DIR)
+    foreground_image = cv2.resize(foreground_image, _RESOLUTION)
+
+    background_in = Animation(_BACKGROUND_IN_DIR, _RESOLUTION)
+    background_out = Animation(_BACKGROUND_OUT_DIR, _RESOLUTION)
+    background_idle = Animation(_BACKGROUND_IDLE_DIR, _RESOLUTION)
 
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
     while True:
@@ -103,7 +107,7 @@ def _main():
             break
 
         # Our operations on the frame come here
-        frame = cv2.resize(frame, (1920, 1080))
+        frame = cv2.resize(frame, _RESOLUTION)
         segmenter.segment_async(frame)
 
         confidence_mask = segmenter.confidence_mask
