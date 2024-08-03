@@ -19,16 +19,11 @@ pip install -r requirements.txt
 
 ## Run
 
-The script uses background animations stored in their
-dedicated directories in the `assets` directory:
-
-- `assets/idle` - Background idle animation.
-- `assets/in` - Background animation-in.
-- `assets/out` - Background animation-out.
+The script uses background and foreground animations stored in their
+dedicated directories in the `assets` directory.
 
 Every directory should contain animation frames in `.png`
-format. You can also change the foreground PNG by replacing
-`assets/foreground.png`.
+format.
 
 Run the script:
 
