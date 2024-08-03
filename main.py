@@ -1,3 +1,5 @@
+from time import perf_counter
+
 import cv2
 from numba import njit, prange
 import numpy as np
@@ -7,17 +9,21 @@ from inference import Segmenter
 
 _WINDOW_NAME = 'frame'
 
-_MODEL_PATH = 'assets/selfie_segmenter_landscape.tflite'
+# _MODEL_PATH = 'assets/selfie_segmenter_landscape.tflite'
+_MODEL_PATH = 'assets/portrait_segmentation.tflite'
 
-_FOREGROUND_PATH = 'assets/foreground.png'
 
-_BACKGROUND_IN_DIR = 'assets/in'
-_BACKGROUND_OUT_DIR = 'assets/out'
-_BACKGROUND_IDLE_DIR = 'assets/idle'
+_FOREGROUND_IN_DIR = 'assets/front_up'
+_FOREGROUND_OUT_DIR = 'assets/front_down'
+_FOREGROUND_IDLE_DIR = 'assets/front_idle'
+
+_BACKGROUND_IN_DIR = 'assets/back_up'
+_BACKGROUND_OUT_DIR = 'assets/back_down'
+_BACKGROUND_IDLE_DIR = 'assets/back_idle'
 
 _RESOLUTION = (1920, 1080)
 
-_HUMAN_PRESENCE_TOL = 0.05
+_HUMAN_PRESENCE_TOL = 0.01
 
 
 @njit(fastmath=True, parallel=True)
@@ -86,11 +92,15 @@ def _main():
         print('Cannot open camera')
         exit()
 
-    state = AnimationState.ABSENT
     segmenter = Segmenter(_MODEL_PATH)
 
-    foreground_image = cv2.imread(_FOREGROUND_PATH, cv2.IMREAD_UNCHANGED)
-    foreground_image = cv2.resize(foreground_image, _RESOLUTION)
+    fg_state = AnimationState.ABSENT
+
+    foreground_in = Animation(_FOREGROUND_IN_DIR, _RESOLUTION)
+    foreground_out = Animation(_FOREGROUND_OUT_DIR, _RESOLUTION)
+    foreground_idle = Animation(_FOREGROUND_IDLE_DIR, _RESOLUTION)
+
+    bg_state = AnimationState.ABSENT
 
     background_in = Animation(_BACKGROUND_IN_DIR, _RESOLUTION)
     background_out = Animation(_BACKGROUND_OUT_DIR, _RESOLUTION)
@@ -101,6 +111,7 @@ def _main():
         # Capture frame-by-frame
         ret, frame = cap.read()
 
+        t1_start = perf_counter()
         # if frame is read correctly ret is True
         if not ret:
             print('Can\'t receive frame (stream end?). Exiting ...')
@@ -116,30 +127,50 @@ def _main():
 
         human_present = is_human_present(confidence_mask, tol=_HUMAN_PRESENCE_TOL)
 
+        foreground_image = None
+
+        if fg_state is AnimationState.IN:
+            foreground_image = foreground_in.next_frame()
+            if foreground_image is None:  # animation ended
+                fg_state = AnimationState.IDLE
+        elif fg_state is AnimationState.OUT:
+            foreground_image = foreground_out.next_frame()
+            if foreground_image is None:  # animation ended
+                fg_state = AnimationState.ABSENT
+
+        if fg_state is AnimationState.IDLE:
+            foreground_image = foreground_idle.next_frame(cycle=True)
+            if not human_present:
+                fg_state = AnimationState.OUT
+        elif fg_state is AnimationState.ABSENT:
+            if human_present:
+                fg_state = AnimationState.IN
+
         background_image = None
 
-        if state is AnimationState.IN:
+        if bg_state is AnimationState.IN:
             background_image = background_in.next_frame()
             if background_image is None:  # animation ended
-                state = AnimationState.IDLE
-        elif state is AnimationState.OUT:
+                bg_state = AnimationState.IDLE
+        elif bg_state is AnimationState.OUT:
             background_image = background_out.next_frame()
             if background_image is None:  # animation ended
-                state = AnimationState.ABSENT
+                bg_state = AnimationState.ABSENT
 
-        if state is AnimationState.IDLE:
+        if bg_state is AnimationState.IDLE:
             background_image = background_idle.next_frame(cycle=True)
             if not human_present:
-                state = AnimationState.OUT
-        elif state is AnimationState.ABSENT:
+                bg_state = AnimationState.OUT
+        elif bg_state is AnimationState.ABSENT:
             if human_present:
-                state = AnimationState.IN
+                bg_state = AnimationState.IN
 
         if background_image is not None:
             bg_image = apply_confidence_mask(background_image, confidence_mask)
             add_transparent_image(frame, bg_image)
 
-        add_transparent_image(frame, foreground_image, y_offset=200)
+        if foreground_image is not None:
+            add_transparent_image(frame, foreground_image)
 
         cv2.imshow(_WINDOW_NAME, frame)
 
@@ -151,6 +182,9 @@ def _main():
         elif key_pressed == ord('n'):
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
+        t1_stop = perf_counter()
+
+        print(1/(t1_stop - t1_start), 'fps')
 
     cv2.destroyAllWindows()
     segmenter.close()
