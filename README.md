@@ -7,7 +7,19 @@
 - Python v3.9 or newer (works on v3.12 as well)
 - CUDA v10.2 or newer **(optional)**
 
-## Setup
+The script uses background and foreground animations stored in their
+dedicated directories in the `assets` directory.
+
+Every directory should contain animation frames in `.png`
+format.
+
+The script should automatically determine your default
+camera and connect to it.
+
+The script will automaticall use your Nvidia GPU
+if you have one and all the necessery drivers are installed.
+
+## Setup (Linux / MacOSX)
 
 Setup virtual environment and install dependencies:
 
@@ -17,25 +29,23 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run
+## Setup and Run (Windows)
 
-The script uses background and foreground animations stored in their
-dedicated directories in the `assets` directory.
+```sh
+setup.bat
+```
 
-Every directory should contain animation frames in `.png`
-format.
-
-Run the script:
+## Run (Linux / MacOSX)
 
 ```sh
 python main.py
 ```
 
-The script should automatically determine your default
-camera and connect to it.
+## Run (Windows)
 
-The script will automaticall use your Nvidia GPU
-if you have one and all the necessery drivers are installed.
+```sh
+init.bat
+```
 
 ## Keyboard Controls
 
