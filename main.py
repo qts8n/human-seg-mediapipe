@@ -7,29 +7,23 @@ from numba import njit, prange
 import numpy as np
 from PIL import Image
 
-from animation import AnimationState, Animation
+from animation import AnimationState, Animation, CompositeAnimation
 from inference import Segmenter
 
 _WINDOW_NAME = 'frame'
 
 _MODEL_PATH = 'assets/selfie_segmenter_landscape.tflite'
 
-_FOREGROUND_IN_DIR = 'assets/front_up'
-_FOREGROUND_OUT_DIR = 'assets/front_down'
-_FOREGROUND_IDLE_DIR = 'assets/front_idle'
-
-_BACKGROUND_IN_DIR = 'assets/back_up'
-_BACKGROUND_OUT_DIR = 'assets/back_down'
-_BACKGROUND_IDLE_DIR = 'assets/back_idle'
+_FOREGROUND_ANIMATION_DIR = 'assets/front_up'
+_BACKGROUND_ANIMATION_DIR = 'assets/back_up'
+_ANIMATION_DELAY = 60
 
 _RESOLUTION = (1920, 1080)
 _NUM_PX = _RESOLUTION[0] * _RESOLUTION[1]
 
-_DELAY = 60
-
 _HUMAN_PRESENCE_TOL = 0.05
-_HUMAN_PRESENCE_DELAY = 15
-_HUMAN_ABSENCE_DELAY = 15
+_HUMAN_PRESENCE_DELAY = 5
+_HUMAN_ABSENCE_DELAY = 5
 
 
 def cv2_to_image_a(img):
@@ -73,21 +67,9 @@ def _main():
 
     segmenter = Segmenter(_MODEL_PATH)
 
-    fg_state = AnimationState.ABSENT
-
-    foreground_in = Animation(_FOREGROUND_IN_DIR, _RESOLUTION, pil=True)
-    foreground_out = Animation(_FOREGROUND_OUT_DIR, _RESOLUTION, pil=True)
-    foreground_idle = Animation(_FOREGROUND_IDLE_DIR, _RESOLUTION, pil=True)
-
-    fg_delay = 0
-
-    bg_state = AnimationState.ABSENT
-
-    background_in = Animation(_BACKGROUND_IN_DIR, _RESOLUTION)
-    background_out = Animation(_BACKGROUND_OUT_DIR, _RESOLUTION)
-    background_idle = Animation(_BACKGROUND_IDLE_DIR, _RESOLUTION)
-
-    bg_delay = 0
+    foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
+    background_animation = Animation(_BACKGROUND_ANIMATION_DIR, _RESOLUTION, offset_in=_ANIMATION_DELAY)
+    animation = CompositeAnimation(foreground_animation, background_animation)
 
     human_present = False
     human_presence = 0
@@ -125,62 +107,13 @@ def _main():
                 if human_absence > _HUMAN_ABSENCE_DELAY:
                     human_present = False
 
-        foreground_image = None
-
-        if fg_state is AnimationState.IN:
-            foreground_image = foreground_in.next_frame()
-            if foreground_image is None:  # animation ended
-                fg_state = AnimationState.IDLE
-        elif fg_state is AnimationState.OUT:
-            foreground_image = foreground_out.next_frame()
-            if foreground_image is None:  # animation ended
-                fg_state = AnimationState.ABSENT
-
-        if fg_state is AnimationState.IDLE:
-            foreground_image = foreground_idle.next_frame(cycle=True)
-            if not human_present:
-                fg_delay += 1
-                if fg_delay > _DELAY:
-                    fg_state = AnimationState.OUT
-            else:
-                fg_delay = 0
-        elif fg_state is AnimationState.ABSENT:
-            if human_present:
-                fg_state = AnimationState.IN
-
-        background_image = None
-
-        if bg_state is AnimationState.IN:
-            background_image = background_in.next_frame()
-            if background_image is None:  # animation ended
-                bg_state = AnimationState.IDLE
-        elif bg_state is AnimationState.OUT:
-            background_image = background_out.next_frame()
-            if background_image is None:  # animation ended
-                bg_state = AnimationState.ABSENT
-
-        if bg_state is AnimationState.IDLE:
-            background_image = background_idle.next_frame(cycle=True)
-            if not human_present:
-                bg_state = AnimationState.OUT
-        elif bg_state is AnimationState.ABSENT:
-            if human_present:
-                bg_delay += 1
-                if bg_delay > _DELAY:
-                    bg_state = AnimationState.IN
-                    bg_delay = 0
-            else:
-                bg_delay = 0
-
+        foreground_image, background_image = animation.current_frames(present=human_present)
 
         frame = cv2_to_image(frame)
 
-        if background_image is not None:
-            bg_image = cv2_to_image_a(apply_confidence_mask(background_image, confidence_mask))
-            frame.paste(bg_image, mask=bg_image)
-
-        if foreground_image is not None:
-            frame.paste(foreground_image, mask=foreground_image)
+        bg_image = cv2_to_image_a(apply_confidence_mask(background_image, confidence_mask))
+        frame.paste(bg_image, mask=bg_image)
+        frame.paste(foreground_image, mask=foreground_image)
 
         frame = image_to_cv2(frame)
 
