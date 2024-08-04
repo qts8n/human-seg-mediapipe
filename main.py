@@ -1,5 +1,3 @@
-from time import perf_counter
-
 import cv2
 import numpy as np
 
@@ -44,7 +42,6 @@ def _main():
         # Capture frame-by-frame
         ret, frame = cap.read()
 
-        t1_start = perf_counter()
         # if frame is read correctly ret is True
         if not ret:
             print('Can\'t receive frame (stream end?). Exiting ...')
@@ -85,10 +82,6 @@ def _main():
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         elif key_pressed == ord('n'):
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
-
-        t1_stop = perf_counter()
-
-        print(1/(t1_stop - t1_start), 'fps')
 
     cv2.destroyAllWindows()
     segmenter.close()
