@@ -2,19 +2,31 @@ import time
 
 import mediapipe as mp  # type: ignore
 import numpy as np
+from PIL import Image
 
 
 class Segmenter:
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, output_category_mask=False):
         self.result = None
+        self.output_category_mask = output_category_mask
+        self.category_mask = None
+        self.confidence_mask = None
 
         # callback function
         def update_result(result, *_):
             self.result = result
+            if result is None:
+                return
+
+            self.confidence_mask = result.confidence_masks[0].numpy_view()
+
+            if output_category_mask:
+                self.category_mask = Image.fromarray(result.category_mask.numpy_view())
 
         options = mp.tasks.vision.ImageSegmenterOptions(
             base_options=mp.tasks.BaseOptions(model_asset_path=model_path),
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
+            output_category_mask=output_category_mask,
             result_callback=update_result,
         )
 
@@ -26,18 +38,6 @@ class Segmenter:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
         # detect landmarks
         self.segmenter.segment_async(mp_image, int(time.time() * 1000))
-
-    @property
-    def category_mask(self):
-        if self.result is None:
-            return None
-        return self.result.category_mask.numpy_view()
-
-    @property
-    def confidence_mask(self):
-        if self.result is None:
-            return None
-        return self.result.confidence_masks[0].numpy_view()
 
     def close(self):
         # close segmenter
