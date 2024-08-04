@@ -1,14 +1,11 @@
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 from time import perf_counter
 
 import cv2
-from numba import njit, prange
 import numpy as np
-from PIL import Image
 
-from animation import AnimationState, Animation, CompositeAnimation
+from animation import Animation, CompositeAnimation
 from inference import Segmenter
+import utils
 
 _WINDOW_NAME = 'frame'
 
@@ -24,39 +21,6 @@ _NUM_PX = _RESOLUTION[0] * _RESOLUTION[1]
 _HUMAN_PRESENCE_TOL = 0.05
 _HUMAN_PRESENCE_DELAY = 5
 _HUMAN_ABSENCE_DELAY = 5
-
-
-def cv2_to_image_a(img):
-    return Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA))
-
-
-def image_to_cv2_a(img):
-    return cv2.cvtColor(np.array(img), cv2.COLOR_RGBA2BGRA)
-
-
-def cv2_to_image(img):
-    return Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-
-
-def image_to_cv2(img):
-    return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-
-
-def is_human_present(confidence_mask: np.ndarray, tol: float = 0.2) -> bool:
-    return (confidence_mask.sum() / _NUM_PX) > tol
-
-
-@njit(fastmath=True, parallel=True, cache=True)
-def apply_confidence_mask(image: np.ndarray, confidence_mask: np.ndarray) -> np.ndarray:
-    bg_image = image.copy()
-    bg_h, bg_w, _ = bg_image.shape
-    for h in prange(bg_h):
-        for w in prange(bg_w):
-            is_human = confidence_mask[h, w]
-            if bg_image[h, w, 3] > 0:
-                confidence = int(255 * (1 - is_human))
-                bg_image[h, w, 3] = confidence
-    return bg_image
 
 
 def _main():
@@ -90,11 +54,12 @@ def _main():
         frame = cv2.resize(frame, _RESOLUTION)
         segmenter.segment_async(frame)
 
+        frame = segmenter.frame
         confidence_mask = segmenter.confidence_mask
-        if not isinstance(confidence_mask, np.ndarray):
+        if not isinstance(confidence_mask, np.ndarray) or not isinstance(frame, np.ndarray):
             continue
 
-        if is_human_present(confidence_mask, tol=_HUMAN_PRESENCE_TOL):
+        if utils.is_human_present(confidence_mask, tol=_HUMAN_PRESENCE_TOL, total=_NUM_PX):
             human_absence = 0
             if not human_present:
                 human_presence += 1
@@ -108,14 +73,8 @@ def _main():
                     human_present = False
 
         foreground_image, background_image = animation.current_frames(present=human_present)
-
-        frame = cv2_to_image(frame)
-
-        bg_image = cv2_to_image_a(apply_confidence_mask(background_image, confidence_mask))
-        frame.paste(bg_image, mask=bg_image)
-        frame.paste(foreground_image, mask=foreground_image)
-
-        frame = image_to_cv2(frame)
+        segmenter.foreground_image = foreground_image
+        segmenter.background_image = background_image
 
         cv2.imshow(_WINDOW_NAME, frame)
 
