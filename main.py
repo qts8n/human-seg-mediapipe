@@ -31,7 +31,7 @@ _HUMAN_PRESENCE_DELAY = 5
 _HUMAN_ABSENCE_DELAY = 5
 
 
-def _main():
+def _main(cap: ThreadedCamera):
     segmenter = Segmenter(_MODEL_PATH)
 
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
@@ -48,7 +48,6 @@ def _main():
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
 
-    cap = ThreadedCamera(_CAMERA_INDEX)
     while True:
         frame = cap.frame
         if frame is None:
@@ -115,4 +114,9 @@ def _main():
 
 
 if __name__ == '__main__':
-    _main()
+    cap = ThreadedCamera(_CAMERA_INDEX)
+    try:
+        _main(cap)
+    finally:
+        cap.stop()
+        cap.join()

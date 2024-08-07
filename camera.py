@@ -25,6 +25,8 @@ class ThreadedCamera:
         self.status = True
         self.frame = None
 
+        self._stop_signal = False
+
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.update, args=())
         self.thread.daemon = True
@@ -36,3 +38,11 @@ class ThreadedCamera:
         while True:
             if self.capture.isOpened():
                 (self.status, self.frame) = self.capture.read()
+            if self._stop_signal:
+                break
+
+    def stop(self):
+        self._stop_signal = True
+
+    def join(self):
+        self.thread.join()
