@@ -9,6 +9,8 @@ from camera import ThreadedCamera
 from inference import Segmenter
 import utils
 
+_DEBUG = False
+
 _CAMERA_INDEX = 0
 
 _WINDOW_NAME = 'frame'
@@ -104,8 +106,9 @@ def _main():
         elif key_pressed == ord('n'):
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
-        time_end = perf_counter() - time_start
-        print('frame processed:', time_end * 1000, 'ms')
+        if _DEBUG:
+            time_end = perf_counter() - time_start
+            print('frame processed:', time_end * 1000, 'ms')
 
     cv2.destroyAllWindows()
     segmenter.close()

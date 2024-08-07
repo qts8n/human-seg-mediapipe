@@ -5,15 +5,7 @@ from time import perf_counter
 import cv2
 
 
-class ThreadedCameraError(Exception):
-    pass
-
-
-class ThreadedCameraOpenError(ThreadedCameraError):
-    pass
-
-
-class ThreadedCameraCaptureError(ThreadedCameraError):
+class ThreadedCameraOpenError(Exception):
     pass
 
 

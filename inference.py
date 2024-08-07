@@ -20,7 +20,6 @@ class Segmenter:
 
         # callback function
         def update_result(result, frame, _):
-            time_start = time.perf_counter()
             self.result = result
             if result is None:
                 return
@@ -34,8 +33,6 @@ class Segmenter:
             if self.background_image is not None:
                 background_image = utils.cv2_to_image_a(utils.apply_confidence_mask(self.background_image, self.confidence_mask))
                 self.pil_frame.paste(background_image, mask=background_image)
-            time_end = time.perf_counter() - time_start
-            print('segmenter done:', time_end * 1000, 'ms')
 
         options = mp.tasks.vision.ImageSegmenterOptions(
             base_options=mp.tasks.BaseOptions(model_asset_path=model_path),
