@@ -1,11 +1,20 @@
+from time import perf_counter
+import os
+
 import cv2
 import numpy as np
 
 from animation import Animation, CompositeAnimation
+from camera import ThreadedCamera
 from inference import Segmenter
 import utils
 
+_DEBUG = False
+
+_CAMERA_INDEX = 0
+
 _WINDOW_NAME = 'frame'
+_WINDOW_RESOLUTION = (1280, 720)
 
 _MODEL_PATH = 'assets/selfie_segmenter_landscape.tflite'
 
@@ -13,6 +22,7 @@ _FOREGROUND_ANIMATION_DIR = 'assets/front_up'
 _BACKGROUND_ANIMATION_DIR = 'assets/back_up'
 _ANIMATION_DELAY = 60
 
+_FRAME_RATE = 30
 _RESOLUTION = (1920, 1080)
 _NUM_PX = _RESOLUTION[0] * _RESOLUTION[1]
 
@@ -21,12 +31,7 @@ _HUMAN_PRESENCE_DELAY = 5
 _HUMAN_ABSENCE_DELAY = 5
 
 
-def _main():
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print('Cannot open camera')
-        exit()
-
+def _main(cap: ThreadedCamera):
     segmenter = Segmenter(_MODEL_PATH)
 
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
@@ -37,23 +42,35 @@ def _main():
     human_presence = 0
     human_absence = 0
 
+    prev_time = 0
+    frame_time_limit = 1. / _FRAME_RATE
+
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
+
     while True:
-        # Capture frame-by-frame
-        ret, frame = cap.read()
+        frame = cap.frame
+        if frame is None:
+            continue
 
         # if frame is read correctly ret is True
-        if not ret:
+        if not cap.status:
             print('Can\'t receive frame (stream end?). Exiting ...')
             break
+
+        # FPS limit to _FRAME_RATE
+        time_start = perf_counter()
+        time_elapsed = time_start - prev_time
+        if time_elapsed < frame_time_limit:
+            continue
+        prev_time = time_start
 
         # Our operations on the frame come here
         frame = cv2.resize(frame, _RESOLUTION)
         segmenter.segment_async(frame)
 
-        frame = segmenter.frame
         confidence_mask = segmenter.confidence_mask
-        if not isinstance(confidence_mask, np.ndarray) or not isinstance(frame, np.ndarray):
+        if confidence_mask is None or frame is None:
             continue
 
         if utils.is_human_present(confidence_mask, tol=_HUMAN_PRESENCE_TOL, total=_NUM_PX):
@@ -69,9 +86,14 @@ def _main():
                 if human_absence > _HUMAN_ABSENCE_DELAY:
                     human_present = False
 
-        foreground_image, background_image = animation.current_frames(present=human_present)
-        segmenter.foreground_image = foreground_image
+        fg_image, background_image = animation.current_frames(present=human_present)
         segmenter.background_image = background_image
+
+        frame = segmenter.pil_frame
+        if frame is None:
+            continue
+        frame.paste(fg_image, mask=fg_image)
+        frame = utils.image_to_cv2(frame)
 
         cv2.imshow(_WINDOW_NAME, frame)
 
@@ -83,9 +105,18 @@ def _main():
         elif key_pressed == ord('n'):
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
+        if _DEBUG:
+            time_end = perf_counter() - time_start
+            print('frame processed:', time_end * 1000, 'ms')
+
     cv2.destroyAllWindows()
     segmenter.close()
 
 
 if __name__ == '__main__':
-    _main()
+    cap = ThreadedCamera(_CAMERA_INDEX)
+    try:
+        _main(cap)
+    finally:
+        cap.stop()
+        cap.join()
