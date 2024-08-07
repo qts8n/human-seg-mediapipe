@@ -30,9 +30,10 @@ def _main():
         print('Cannot open camera')
         exit()
     # requesting bare minimum from the camera
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     cap.set(cv2.CAP_PROP_FPS, 30)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
     segmenter = Segmenter(_MODEL_PATH)
 
@@ -53,6 +54,8 @@ def _main():
         time_start = perf_counter()
         # Capture frame-by-frame
         ret, frame = cap.read()
+        time_captured = perf_counter() - time_start
+        print('frame captured:', time_captured * 1000, 'ms')
 
         # if frame is read correctly ret is True
         if not ret:
