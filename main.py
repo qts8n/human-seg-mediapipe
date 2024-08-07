@@ -1,3 +1,4 @@
+from time import perf_counter
 import cv2
 import numpy as np
 
@@ -6,6 +7,7 @@ from inference import Segmenter
 import utils
 
 _WINDOW_NAME = 'frame'
+_WINDOW_RESOLUTION = (1280, 270)
 
 _MODEL_PATH = 'assets/selfie_segmenter_landscape.tflite'
 
@@ -13,6 +15,7 @@ _FOREGROUND_ANIMATION_DIR = 'assets/front_up'
 _BACKGROUND_ANIMATION_DIR = 'assets/back_up'
 _ANIMATION_DELAY = 60
 
+_FRAME_RATE = 30
 _RESOLUTION = (1920, 1080)
 _NUM_PX = _RESOLUTION[0] * _RESOLUTION[1]
 
@@ -26,6 +29,9 @@ def _main():
     if not cap.isOpened():
         print('Cannot open camera')
         exit()
+    # may not work in some cases, hence resize next
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, _RESOLUTION[0])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _RESOLUTION[1])
 
     segmenter = Segmenter(_MODEL_PATH)
 
@@ -37,7 +43,11 @@ def _main():
     human_presence = 0
     human_absence = 0
 
+    prev_time = 0
+    frame_time_limit = 1. / _FRAME_RATE
+
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
     while True:
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -47,13 +57,20 @@ def _main():
             print('Can\'t receive frame (stream end?). Exiting ...')
             break
 
+        # FPS limit to _FRAME_RATE
+        curr_time = perf_counter()
+        time_elapsed = curr_time - prev_time
+        if time_elapsed < frame_time_limit:
+            continue
+        prev_time = curr_time
+
         # Our operations on the frame come here
         frame = cv2.resize(frame, _RESOLUTION)
         segmenter.segment_async(frame)
 
         frame = segmenter.frame
         confidence_mask = segmenter.confidence_mask
-        if not isinstance(confidence_mask, np.ndarray) or not isinstance(frame, np.ndarray):
+        if confidence_mask is None or frame is None:
             continue
 
         if utils.is_human_present(confidence_mask, tol=_HUMAN_PRESENCE_TOL, total=_NUM_PX):

@@ -16,7 +16,9 @@ class Segmenter:
 
         self.foreground_image = None
         self.background_image = None
+
         self.frame = None
+        self.pil_frame = None
 
         # callback function
         def update_result(result, frame, _):
@@ -30,14 +32,13 @@ class Segmenter:
                 self.category_mask = Image.fromarray(result.category_mask.numpy_view())
 
             frame = frame.numpy_view()
+            self.pil_frame = utils.cv2_to_image(frame)
             if self.foreground_image is not None and self.background_image is not None:
-                frame = utils.cv2_to_image(frame)
-
                 bg_image = utils.cv2_to_image_a(utils.apply_confidence_mask(self.background_image, self.confidence_mask))
-                frame.paste(bg_image, mask=bg_image)
-                frame.paste(self.foreground_image, mask=self.foreground_image)
+                self.pil_frame.paste(bg_image, mask=bg_image)
+                self.pil_frame.paste(self.foreground_image, mask=self.foreground_image)
 
-                frame = utils.image_to_cv2(frame)
+                frame = utils.image_to_cv2(self.pil_frame)
             self.frame = frame
 
         options = mp.tasks.vision.ImageSegmenterOptions(
