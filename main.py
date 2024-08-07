@@ -1,13 +1,18 @@
 from time import perf_counter
+import os
+
 import cv2
 import numpy as np
 
 from animation import Animation, CompositeAnimation
+from camera import ThreadedCamera
 from inference import Segmenter
 import utils
 
+_CAMERA_INDEX = 0
+
 _WINDOW_NAME = 'frame'
-_WINDOW_RESOLUTION = (1280, 270)
+_WINDOW_RESOLUTION = (1280, 720)
 
 _MODEL_PATH = 'assets/selfie_segmenter_landscape.tflite'
 
@@ -25,16 +30,6 @@ _HUMAN_ABSENCE_DELAY = 5
 
 
 def _main():
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print('Cannot open camera')
-        exit()
-    # requesting bare minimum from the camera
-    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
-
     segmenter = Segmenter(_MODEL_PATH)
 
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
@@ -50,24 +45,24 @@ def _main():
 
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
+
+    cap = ThreadedCamera(_CAMERA_INDEX)
     while True:
-        time_start = perf_counter()
-        # Capture frame-by-frame
-        ret, frame = cap.read()
-        time_captured = perf_counter() - time_start
-        print('frame captured:', time_captured * 1000, 'ms')
+        frame = cap.frame
+        if frame is None:
+            continue
 
         # if frame is read correctly ret is True
-        if not ret:
+        if not cap.status:
             print('Can\'t receive frame (stream end?). Exiting ...')
             break
 
         # FPS limit to _FRAME_RATE
-        curr_time = perf_counter()
-        time_elapsed = curr_time - prev_time
+        time_start = perf_counter()
+        time_elapsed = time_start - prev_time
         if time_elapsed < frame_time_limit:
             continue
-        prev_time = curr_time
+        prev_time = time_start
 
         # Our operations on the frame come here
         frame = cv2.resize(frame, _RESOLUTION)
