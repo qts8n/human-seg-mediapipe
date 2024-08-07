@@ -29,9 +29,10 @@ def _main():
     if not cap.isOpened():
         print('Cannot open camera')
         exit()
-    # may not work in some cases, hence resize next
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, _RESOLUTION[0])
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _RESOLUTION[1])
+    # requesting bare minimum from the camera
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FPS, 30)
 
     segmenter = Segmenter(_MODEL_PATH)
 
@@ -49,6 +50,7 @@ def _main():
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
     while True:
+        time_start = perf_counter()
         # Capture frame-by-frame
         ret, frame = cap.read()
 
@@ -68,7 +70,6 @@ def _main():
         frame = cv2.resize(frame, _RESOLUTION)
         segmenter.segment_async(frame)
 
-        frame = segmenter.frame
         confidence_mask = segmenter.confidence_mask
         if confidence_mask is None or frame is None:
             continue
@@ -86,9 +87,14 @@ def _main():
                 if human_absence > _HUMAN_ABSENCE_DELAY:
                     human_present = False
 
-        foreground_image, background_image = animation.current_frames(present=human_present)
-        segmenter.foreground_image = foreground_image
+        fg_image, background_image = animation.current_frames(present=human_present)
         segmenter.background_image = background_image
+
+        frame = segmenter.pil_frame
+        if frame is None:
+            continue
+        frame.paste(fg_image, mask=fg_image)
+        frame = utils.image_to_cv2(frame)
 
         cv2.imshow(_WINDOW_NAME, frame)
 
@@ -99,6 +105,9 @@ def _main():
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         elif key_pressed == ord('n'):
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+
+        time_end = perf_counter() - time_start
+        print('frame processed:', time_end * 1000, 'ms')
 
     cv2.destroyAllWindows()
     segmenter.close()

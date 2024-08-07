@@ -14,14 +14,13 @@ class Segmenter:
         self.category_mask = None
         self.confidence_mask = None
 
-        self.foreground_image = None
         self.background_image = None
 
-        self.frame = None
         self.pil_frame = None
 
         # callback function
         def update_result(result, frame, _):
+            time_start = time.perf_counter()
             self.result = result
             if result is None:
                 return
@@ -31,15 +30,12 @@ class Segmenter:
             if output_category_mask:
                 self.category_mask = Image.fromarray(result.category_mask.numpy_view())
 
-            frame = frame.numpy_view()
-            self.pil_frame = utils.cv2_to_image(frame)
-            if self.foreground_image is not None and self.background_image is not None:
-                bg_image = utils.cv2_to_image_a(utils.apply_confidence_mask(self.background_image, self.confidence_mask))
-                self.pil_frame.paste(bg_image, mask=bg_image)
-                self.pil_frame.paste(self.foreground_image, mask=self.foreground_image)
-
-                frame = utils.image_to_cv2(self.pil_frame)
-            self.frame = frame
+            self.pil_frame = utils.cv2_to_image(frame.numpy_view())
+            if self.background_image is not None:
+                background_image = utils.cv2_to_image_a(utils.apply_confidence_mask(self.background_image, self.confidence_mask))
+                self.pil_frame.paste(background_image, mask=background_image)
+            time_end = time.perf_counter() - time_start
+            print('segmenter done:', time_end * 1000, 'ms')
 
         options = mp.tasks.vision.ImageSegmenterOptions(
             base_options=mp.tasks.BaseOptions(model_asset_path=model_path),
