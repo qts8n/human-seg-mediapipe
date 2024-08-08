@@ -95,7 +95,6 @@ def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
         cv2.imshow(_WINDOW_NAME, frame)
 
         key_pressed = cv2.waitKey(1)
-        print(key_pressed)
         if key_pressed in _Q_BTN:
             break
         elif key_pressed in _F_BTN:
