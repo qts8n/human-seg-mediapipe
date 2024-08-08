@@ -1,16 +1,7 @@
-import enum
 import os
 
 import cv2
 from PIL import Image
-
-
-class AnimationState(enum.Enum):
-    IDLE = 0
-    IN = 1
-    OUT = 2
-    ABSENT = 3
-    DELAY = 4
 
 
 class Animation:

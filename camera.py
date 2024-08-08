@@ -1,6 +1,5 @@
 import os
 from threading import Thread
-from time import perf_counter
 
 import cv2
 
