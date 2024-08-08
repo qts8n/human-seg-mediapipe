@@ -1,3 +1,4 @@
+import argparse
 from time import perf_counter
 
 import cv2
@@ -6,10 +7,6 @@ from animation import Animation, CompositeAnimation
 from camera import ThreadedCamera
 from inference import Segmenter
 import utils
-
-_DEBUG = False
-
-_CAMERA_INDEX = 0
 
 _WINDOW_NAME = 'frame'
 _WINDOW_RESOLUTION = (1280, 720)
@@ -28,10 +25,12 @@ _HUMAN_PRESENCE_TOL = 0.05
 _HUMAN_PRESENCE_DELAY = 5
 _HUMAN_ABSENCE_DELAY = 5
 
+_Q_BTN = (ord('q'), 202, 233)
+_F_BTN = (ord('f'), 193, 224)
+_N_BTN = (ord('n'), 212, 242)
 
-def _main(cap: ThreadedCamera):
-    segmenter = Segmenter(_MODEL_PATH)
 
+def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
     background_animation = Animation(_BACKGROUND_ANIMATION_DIR, _RESOLUTION, offset_in=_ANIMATION_DELAY)
     animation = CompositeAnimation(foreground_animation, background_animation)
@@ -47,14 +46,14 @@ def _main(cap: ThreadedCamera):
     cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
 
     while True:
-        frame = cap.frame
-        if frame is None:
-            continue
-
         # if frame is read correctly ret is True
-        if not cap.status:
+        if not capture.status:
             print('Can\'t receive frame (stream end?). Exiting ...')
             break
+
+        frame = capture.frame
+        if frame is None:
+            continue
 
         # FPS limit to _FRAME_RATE
         time_start = perf_counter()
@@ -96,25 +95,38 @@ def _main(cap: ThreadedCamera):
         cv2.imshow(_WINDOW_NAME, frame)
 
         key_pressed = cv2.waitKey(1)
-        if key_pressed == ord('q'):
+        print(key_pressed)
+        if key_pressed in _Q_BTN:
             break
-        elif key_pressed == ord('f'):
+        elif key_pressed in _F_BTN:
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        elif key_pressed == ord('n'):
+        elif key_pressed in _N_BTN:
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
-        if _DEBUG:
+        if verbose:
             time_end = perf_counter() - time_start
             print('frame processed:', time_end * 1000, 'ms')
 
-    cv2.destroyAllWindows()
-    segmenter.close()
-
 
 if __name__ == '__main__':
-    cap = ThreadedCamera(_CAMERA_INDEX)
+    parser = argparse.ArgumentParser(description='Human segmentation filter')
+    parser.add_argument(
+        '-c', '--camera',
+        type=int,
+        default=0,
+        help='Camera index')
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Verbose output')
+    args = parser.parse_args()
+
+    capture = ThreadedCamera(args.camera)
+    segmenter = Segmenter(_MODEL_PATH)
     try:
-        _main(cap)
+        _main(capture, segmenter, verbose=args.verbose)
     finally:
-        cap.stop()
-        cap.join()
+        capture.stop()
+        capture.join()
+        cv2.destroyAllWindows()
+        segmenter.close()
