@@ -29,9 +29,8 @@ _Q_BTN = (ord('q'), 202)
 _F_BTN = (ord('f'), 193)
 _N_BTN = (ord('n'), 212)
 
-def _main(cap: ThreadedCamera, verbose: bool = False):
-    segmenter = Segmenter(_MODEL_PATH)
 
+def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
     background_animation = Animation(_BACKGROUND_ANIMATION_DIR, _RESOLUTION, offset_in=_ANIMATION_DELAY)
     animation = CompositeAnimation(foreground_animation, background_animation)
@@ -48,11 +47,11 @@ def _main(cap: ThreadedCamera, verbose: bool = False):
 
     while True:
         # if frame is read correctly ret is True
-        if not cap.status:
+        if not capture.status:
             print('Can\'t receive frame (stream end?). Exiting ...')
             break
 
-        frame = cap.frame
+        frame = capture.frame
         if frame is None:
             continue
 
@@ -107,9 +106,6 @@ def _main(cap: ThreadedCamera, verbose: bool = False):
             time_end = perf_counter() - time_start
             print('frame processed:', time_end * 1000, 'ms')
 
-    cv2.destroyAllWindows()
-    segmenter.close()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Human segmentation filter')
@@ -124,9 +120,12 @@ if __name__ == '__main__':
         help='Verbose output')
     args = parser.parse_args()
 
-    cap = ThreadedCamera(args.camera)
+    capture = ThreadedCamera(args.camera)
+    segmenter = Segmenter(_MODEL_PATH)
     try:
-        _main(cap, verbose=args.verbose)
+        _main(capture, segmenter, verbose=args.verbose)
     finally:
-        cap.stop()
-        cap.join()
+        capture.stop()
+        capture.join()
+        cv2.destroyAllWindows()
+        segmenter.close()
