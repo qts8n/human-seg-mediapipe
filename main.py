@@ -1,5 +1,4 @@
 import argparse
-from time import perf_counter
 
 import cv2
 
@@ -30,7 +29,7 @@ _F_BTN = (ord('f'), 193, 224)
 _N_BTN = (ord('n'), 212, 242)
 
 
-def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
+def _main(capture: ThreadedCamera, segmenter: Segmenter):
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
     background_animation = Animation(_BACKGROUND_ANIMATION_DIR, _RESOLUTION, offset_in=_ANIMATION_DELAY)
     animation = CompositeAnimation(foreground_animation, background_animation)
@@ -39,8 +38,7 @@ def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
     human_presence = 0
     human_absence = 0
 
-    prev_time = 0
-    frame_time_limit = 1. / _FRAME_RATE
+    frame_time_limit = int(1. / _FRAME_RATE * 1000)
 
     cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
@@ -54,13 +52,6 @@ def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
         frame = capture.frame
         if frame is None:
             continue
-
-        # FPS limit to _FRAME_RATE
-        time_start = perf_counter()
-        time_elapsed = time_start - prev_time
-        if time_elapsed < frame_time_limit:
-            continue
-        prev_time = time_start
 
         # Our operations on the frame come here
         frame = cv2.resize(frame, _RESOLUTION)
@@ -94,17 +85,13 @@ def _main(capture: ThreadedCamera, segmenter: Segmenter, verbose: bool = False):
 
         cv2.imshow(_WINDOW_NAME, frame)
 
-        key_pressed = cv2.waitKey(1)
+        key_pressed = cv2.waitKey(frame_time_limit)
         if key_pressed in _Q_BTN:
             break
         elif key_pressed in _F_BTN:
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         elif key_pressed in _N_BTN:
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
-
-        if verbose:
-            time_end = perf_counter() - time_start
-            print('frame processed:', time_end * 1000, 'ms')
 
 
 if __name__ == '__main__':
@@ -114,16 +101,12 @@ if __name__ == '__main__':
         type=int,
         default=0,
         help='Camera index')
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output')
     args = parser.parse_args()
 
     capture = ThreadedCamera(args.camera)
     segmenter = Segmenter(_MODEL_PATH)
     try:
-        _main(capture, segmenter, verbose=args.verbose)
+        _main(capture, segmenter)
     finally:
         capture.stop()
         capture.join()
