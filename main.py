@@ -25,6 +25,9 @@ _HUMAN_PRESENCE_TOL = 0.05
 _HUMAN_PRESENCE_DELAY = 5
 _HUMAN_ABSENCE_DELAY = 5
 
+_Q_BTN = (ord('q'), 202)
+_F_BTN = (ord('f'), 193)
+_N_BTN = (ord('n'), 212)
 
 def _main(cap: ThreadedCamera, verbose: bool = False):
     segmenter = Segmenter(_MODEL_PATH)
@@ -93,11 +96,11 @@ def _main(cap: ThreadedCamera, verbose: bool = False):
         cv2.imshow(_WINDOW_NAME, frame)
 
         key_pressed = cv2.waitKey(1)
-        if key_pressed == ord('q'):
+        if key_pressed in _Q_BTN:
             break
-        elif key_pressed == ord('f'):
+        elif key_pressed in _F_BTN:
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        elif key_pressed == ord('n'):
+        elif key_pressed in _N_BTN:
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
         if verbose:
