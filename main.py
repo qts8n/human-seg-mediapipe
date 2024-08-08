@@ -1,3 +1,4 @@
+import argparse
 from time import perf_counter
 
 import cv2
@@ -6,10 +7,6 @@ from animation import Animation, CompositeAnimation
 from camera import ThreadedCamera
 from inference import Segmenter
 import utils
-
-_DEBUG = False
-
-_CAMERA_INDEX = 0
 
 _WINDOW_NAME = 'frame'
 _WINDOW_RESOLUTION = (1280, 720)
@@ -29,7 +26,7 @@ _HUMAN_PRESENCE_DELAY = 5
 _HUMAN_ABSENCE_DELAY = 5
 
 
-def _main(cap: ThreadedCamera):
+def _main(cap: ThreadedCamera, verbose: bool = False):
     segmenter = Segmenter(_MODEL_PATH)
 
     foreground_animation = Animation(_FOREGROUND_ANIMATION_DIR, _RESOLUTION, pil=True, offset_out=_ANIMATION_DELAY)
@@ -47,14 +44,14 @@ def _main(cap: ThreadedCamera):
     cv2.resizeWindow(_WINDOW_NAME, *_WINDOW_RESOLUTION)
 
     while True:
-        frame = cap.frame
-        if frame is None:
-            continue
-
         # if frame is read correctly ret is True
         if not cap.status:
             print('Can\'t receive frame (stream end?). Exiting ...')
             break
+
+        frame = cap.frame
+        if frame is None:
+            continue
 
         # FPS limit to _FRAME_RATE
         time_start = perf_counter()
@@ -103,7 +100,7 @@ def _main(cap: ThreadedCamera):
         elif key_pressed == ord('n'):
             cv2.setWindowProperty(_WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
-        if _DEBUG:
+        if verbose:
             time_end = perf_counter() - time_start
             print('frame processed:', time_end * 1000, 'ms')
 
@@ -112,9 +109,21 @@ def _main(cap: ThreadedCamera):
 
 
 if __name__ == '__main__':
-    cap = ThreadedCamera(_CAMERA_INDEX)
+    parser = argparse.ArgumentParser(description='Human segmentation filter')
+    parser.add_argument(
+        '-c', '--camera',
+        type=int,
+        default=0,
+        help='Camera index')
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Verbose output')
+    args = parser.parse_args()
+
+    cap = ThreadedCamera(args.camera)
     try:
-        _main(cap)
+        _main(cap, verbose=args.verbose)
     finally:
         cap.stop()
         cap.join()
