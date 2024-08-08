@@ -1,8 +1,6 @@
 from time import perf_counter
-import os
 
 import cv2
-import numpy as np
 
 from animation import Animation, CompositeAnimation
 from camera import ThreadedCamera
