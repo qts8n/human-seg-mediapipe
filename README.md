@@ -5,6 +5,7 @@
 ## Requirements
 
 - Python v3.9 or newer (works on v3.12 as well)
+- vc_redist latest **(windows only)**
 - CUDA v10.2 or newer **(optional)**
 
 The script uses background and foreground animations stored in their
@@ -29,22 +30,16 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Setup and Run (Windows)
-
-```sh
-setup.bat
-```
-
 ## Run (Linux / MacOSX)
 
 ```sh
 python main.py
 ```
 
-## Run (Windows)
+## Setup and Run (Windows)
 
 ```sh
-init.bat
+init-camera-1.bat
 ```
 
 ## Keyboard Controls
